@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore")
 
 DATA_PATH = "data/processed/karachi_aqi_features.csv"
 
-MODEL_PATH = "models/random_forest_model.pkl"
+MODEL_PATH = "models/xgboost_model.pkl"
 
 OUTPUT_DIR = "results"
 
@@ -66,7 +66,7 @@ if not os.path.exists(MODEL_PATH):
 model = joblib.load(MODEL_PATH)
 
 print(
-    "Random Forest model loaded successfully."
+    "XGBoost model loaded successfully."
 )
 
 
@@ -208,10 +208,38 @@ X_latest = X_all.loc[
 print("\nChecking feature compatibility...")
 
 
-# Random Forest remembers feature names if trained
-# using a pandas DataFrame.
+# ============================================================
+# XGBoost MultiOutputRegressor
+# ============================================================
 
-if hasattr(
+if hasattr(model, "estimators_"):
+
+    # MultiOutputRegressor stores one estimator
+    # for each target.
+
+    base_model = model.estimators_[0]
+
+    if hasattr(
+        base_model,
+        "feature_names_in_"
+    ):
+
+        expected_features = list(
+            base_model.feature_names_in_
+        )
+
+    else:
+
+        expected_features = list(
+            X_latest.columns
+        )
+
+
+# ============================================================
+# Random Forest / Other models
+# ============================================================
+
+elif hasattr(
     model,
     "feature_names_in_"
 ):
@@ -220,84 +248,76 @@ if hasattr(
         model.feature_names_in_
     )
 
-    print(
-        f"Expected features: "
-        f"{len(expected_features)}"
-    )
-
-    print(
-        f"Available features: "
-        f"{X_latest.shape[1]}"
-    )
-
-
-    # --------------------------------------------------------
-    # Check missing features
-    # --------------------------------------------------------
-
-    missing_features = [
-        feature
-        for feature in expected_features
-        if feature not in X_latest.columns
-    ]
-
-
-    if missing_features:
-
-        print("\nMissing features:")
-
-        for feature in missing_features:
-
-            print(
-                f" - {feature}"
-            )
-
-        raise ValueError(
-            "Prediction data is missing "
-            "features required by the model."
-        )
-
-
-    # --------------------------------------------------------
-    # Keep EXACT SAME feature order
-    # --------------------------------------------------------
-
-    X_latest = X_latest[
-        expected_features
-    ]
-
 
 else:
 
-    # Fallback if feature names were not stored
-
-    expected_features = (
-        model.n_features_in_
+    expected_features = list(
+        X_latest.columns
     )
 
-    actual_features = (
-        X_latest.shape[1]
-    )
 
-    print(
-        f"Expected features: "
-        f"{expected_features}"
-    )
+print(
+    f"Expected features: "
+    f"{len(expected_features)}"
+)
 
-    print(
-        f"Available features: "
-        f"{actual_features}"
-    )
+print(
+    f"Available features: "
+    f"{X_latest.shape[1]}"
+)
 
-    if (
-        expected_features
-        != actual_features
-    ):
 
-        raise ValueError(
-            "Feature count mismatch."
+# ============================================================
+# CHECK MISSING FEATURES
+# ============================================================
+
+missing_features = [
+
+    feature
+
+    for feature in expected_features
+
+    if feature not in X_latest.columns
+
+]
+
+
+if missing_features:
+
+    print("\nMissing features:")
+
+    for feature in missing_features:
+
+        print(
+            f" - {feature}"
         )
 
+    raise ValueError(
+        "Prediction data is missing "
+        "features required by the model."
+    )
+
+
+# ============================================================
+# KEEP EXACT SAME FEATURE ORDER
+# ============================================================
+
+X_latest = X_latest[
+    expected_features
+]
+
+
+# ============================================================
+# FINAL FEATURE COUNT CHECK
+# ============================================================
+
+if X_latest.shape[1] != len(
+    expected_features
+):
+
+    raise ValueError(
+        "Feature count mismatch."
+    )
 
 # ============================================================
 # 7. CHECK MISSING VALUES
