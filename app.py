@@ -244,7 +244,6 @@ except FileNotFoundError as e:
     st.error(f"Could not find a required file: {e}")
     st.stop()
 
-
 # ============================================================
 # VALIDATE DATA
 # ============================================================
@@ -271,24 +270,46 @@ if missing_data_columns:
     st.stop()
 
 
+# ============================================================
+# VALIDATE PREDICTION FILE
+# ============================================================
+
 required_prediction_columns = [
-    "AQI_t+1",
-    "AQI_t+2",
-    "AQI_t+3"
+    "forecast_date",
+    "horizon",
+    "predicted_AQI",
+    "category"
 ]
 
 missing_prediction_columns = [
-    col for col in required_prediction_columns
+    col
+    for col in required_prediction_columns
     if col not in prediction_df.columns
 ]
 
 if missing_prediction_columns:
     st.error(
-        f"Missing prediction columns in {PREDICTION_PATH}: "
+        f"Missing columns in {PREDICTION_PATH}: "
         f"{missing_prediction_columns}"
     )
     st.stop()
 
+
+# Make sure prediction values are numeric
+prediction_df["predicted_AQI"] = pd.to_numeric(
+    prediction_df["predicted_AQI"],
+    errors="coerce"
+)
+
+prediction_df["forecast_date"] = pd.to_datetime(
+    prediction_df["forecast_date"],
+    errors="coerce"
+)
+
+
+if prediction_df["predicted_AQI"].isna().any():
+    st.error("Invalid AQI prediction values found.")
+    st.stop()
 
 # ============================================================
 # HEADER
@@ -343,17 +364,25 @@ with header_right:
         unsafe_allow_html=True
     )
 
-
 # ============================================================
 # GITHUB ACTIONS PREDICTION
 # ============================================================
 
-latest_prediction = prediction_df.iloc[-1]
+prediction_lookup = prediction_df.set_index("horizon")[
+    "predicted_AQI"
+]
 
-aqi_1 = float(latest_prediction["AQI_t+1"])
-aqi_2 = float(latest_prediction["AQI_t+2"])
-aqi_3 = float(latest_prediction["AQI_t+3"])
+try:
+    aqi_1 = float(prediction_lookup["AQI_t+1"])
+    aqi_2 = float(prediction_lookup["AQI_t+2"])
+    aqi_3 = float(prediction_lookup["AQI_t+3"])
 
+except KeyError as e:
+    st.error(
+        f"Prediction horizon {e} was not found in "
+        f"{PREDICTION_PATH}."
+    )
+    st.stop()
 
 # ============================================================
 # TODAY'S AQI — GAUGE
@@ -424,55 +453,59 @@ with gauge_col:
         use_container_width=True
     )
 
-
 with detail_col:
 
+    # ========================================================
+    # CURRENT AQI INFORMATION
+    # ========================================================
+
+    detail_html = (
+        f'<div style="padding-top:30px;">'
+        f'<span class="aqi-pill" '
+        f'style="background-color:{current_color};">'
+        f'{current_label}'
+        f'</span>'
+        f'<p style="color:{SOOT_GREY}; '
+        f'margin-top:14px; '
+        f'font-size:0.95rem; '
+        f'line-height:1.5;">'
+        f'Current AQI reading of '
+        f'<b style="color:{INK_NAVY};">{current_aqi:.0f}</b> '
+        f'classifies today\'s air as '
+        f'<b>{current_label.lower()}</b>. '
+        f'Scroll down for the 3-day outlook and the factors '
+        f'the model weighed most heavily.'
+        f'</p>'
+        f'</div>'
+    )
+
     st.markdown(
-        html_block(f"""
-        <div style="padding-top: 30px;">
-
-            <span class="aqi-pill"
-                  style="background-color:{current_color};">
-                {current_label}
-            </span>
-
-            <p style="color:{SOOT_GREY};
-                      margin-top:14px;
-                      font-size:0.95rem;
-                      line-height:1.5;">
-
-                Current AQI reading of
-
-                <b style="color:{INK_NAVY};">
-                    {current_aqi:.0f}
-                </b>
-
-                classifies today's air as
-
-                <b>{current_label.lower()}</b>.
-
-                Scroll down for the 3-day outlook
-                and the factors the model weighed most heavily.
-
-            </p>
-
-            <div class="legend-row">
-        """),
+        detail_html,
         unsafe_allow_html=True
     )
 
-    legend_html = "".join(
+
+# ============================================================
+# AQI LEGEND
+# ============================================================
+
+legend_html = (
+    '<div class="legend-row">'
+    + "".join(
         f'<div class="legend-chip">'
         f'<span class="legend-dot" '
         f'style="background-color:{c};"></span>'
-        f'{l}</div>'
+        f'{l}'
+        f'</div>'
         for _, c, l in AQI_SCALE
     )
+    + '</div>'
+)
 
-    st.markdown(
-        legend_html + "</div></div>",
-        unsafe_allow_html=True
-    )
+st.markdown(
+    legend_html,
+    unsafe_allow_html=True
+)
 
 
 # ============================================================
@@ -484,31 +517,46 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-forecast_days = [
-    (
-        "Today",
-        current_aqi,
-        latest_date
-    ),
-    (
-        "Tomorrow",
-        aqi_1,
-        latest_date + pd.Timedelta(days=1)
-    ),
-    (
-        "Day 2",
-        aqi_2,
-        latest_date + pd.Timedelta(days=2)
-    ),
-    (
-        "Day 3",
-        aqi_3,
-        latest_date + pd.Timedelta(days=3)
-    ),
-]
+# ============================================================
+# FORECAST DAYS
+# ============================================================
+
+forecast_rows = prediction_df.sort_values("forecast_date").copy()
+
+# Get each forecast directly from the GitHub Actions CSV
+forecast_days = []
+
+for horizon, day_label in [
+    ("AQI_t+1", "Tomorrow"),
+    ("AQI_t+2", "Day 2"),
+    ("AQI_t+3", "Day 3"),
+]:
+
+    row = forecast_rows[
+        forecast_rows["horizon"] == horizon
+    ]
+
+    if row.empty:
+        st.error(f"Missing prediction for {horizon}")
+        st.stop()
+
+    value = float(row["predicted_AQI"].iloc[0])
+    date = pd.to_datetime(row["forecast_date"].iloc[0])
+
+    forecast_days.append(
+        (
+            day_label,
+            value,
+            date
+        )
+    )
 
 
-cols = st.columns(4)
+# ============================================================
+# 3-DAY FORECAST CARDS
+# ============================================================
+
+cols = st.columns(3)
 
 for col, (day_label, value, date) in zip(
     cols,
@@ -517,27 +565,25 @@ for col, (day_label, value, date) in zip(
 
     label, color = aqi_category(value)
 
+    # Keep HTML on one line so Streamlit renders it as HTML
+    card_html = (
+        f'<div class="forecast-card">'
+        f'<div class="day-label">'
+        f'{day_label} · {date.strftime("%b %d")}'
+        f'</div>'
+        f'<div class="aqi-value">'
+        f'{value:.0f}'
+        f'</div>'
+        f'<span class="aqi-pill" '
+        f'style="background-color:{color};">'
+        f'{label}'
+        f'</span>'
+        f'</div>'
+    )
+
     with col:
-
         st.markdown(
-            html_block(f"""
-            <div class="forecast-card">
-
-                <div class="day-label">
-                    {day_label} · {date.strftime('%b %d')}
-                </div>
-
-                <div class="aqi-value">
-                    {value:.0f}
-                </div>
-
-                <span class="aqi-pill"
-                      style="background-color:{color};">
-                    {label}
-                </span>
-
-            </div>
-            """),
+            card_html,
             unsafe_allow_html=True
         )
 
@@ -847,20 +893,23 @@ except Exception:
 # ============================================================
 # FOOTER
 # ============================================================
+# ============================================================
+# FOOTER
+# ============================================================
+
+footer_html = (
+    f'<div style="text-align:center; '
+    f'margin-top:2.5rem; '
+    f'padding-top:1.2rem; '
+    f'border-top:1px solid {BORDER}; '
+    f'color:{SOOT_GREY}; '
+    f'font-size:0.85rem;">'
+    f'Karachi AQI Predictor · '
+    f'AI-powered air quality forecasting'
+    f'</div>'
+)
 
 st.markdown(
-    html_block(f"""
-    <div style="text-align:center;
-                margin-top: 2.5rem;
-                padding-top: 1.2rem;
-                border-top: 1px solid {BORDER};
-                color:{SOOT_GREY};
-                font-size:0.85rem;">
-
-        Karachi AQI Predictor ·
-        AI-powered air quality forecasting
-
-    </div>
-    """),
+    footer_html,
     unsafe_allow_html=True
 )

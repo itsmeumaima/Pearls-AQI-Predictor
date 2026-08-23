@@ -70,7 +70,7 @@ def main():
 
     print("1. Update daily data")
     print("2. Preprocess and create features")
-    print("3. Train Random Forest model")
+    print("3. Train XGBoost model")
     print("4. Predict next 3 days AQI")
 
 
