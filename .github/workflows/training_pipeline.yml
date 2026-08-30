@@ -1,0 +1,105 @@
+name: AQI Training Pipeline
+
+on:
+
+  schedule:
+    # Every day at 02:00 UTC
+    - cron: "0 2 * * *"
+
+  workflow_dispatch:
+
+jobs:
+
+  training:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # --------------------------------------------------
+      # 1. Checkout repository
+      # --------------------------------------------------
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      # --------------------------------------------------
+      # 2. Setup Python
+      # --------------------------------------------------
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+
+        with:
+          python-version: "3.11"
+
+
+      # --------------------------------------------------
+      # 3. Install dependencies
+      # --------------------------------------------------
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+
+      # --------------------------------------------------
+      # 4. Update latest data
+      # --------------------------------------------------
+
+      - name: Update AQI data
+        env:
+          AQICN_API_KEY: ${{ secrets.AQICN_API_KEY }}
+        run: |
+          python src/update_daily_data.py
+
+
+      # --------------------------------------------------
+      # 5. Preprocess
+      # --------------------------------------------------
+
+      - name: Preprocess data
+        run: |
+          python src/preprocess_daily_data.py
+
+
+      # --------------------------------------------------
+      # 6. Train model
+      # --------------------------------------------------
+
+      - name: Train XGBoost model
+        run: |
+          python src/model_training.py
+
+
+      # --------------------------------------------------
+      # 7. Generate prediction
+      # --------------------------------------------------
+
+      - name: Generate AQI prediction
+        run: |
+          python src/predict.py
+
+
+      # --------------------------------------------------
+      # 8. Commit model and results
+      # --------------------------------------------------
+
+      - name: Save model and prediction
+        run: |
+
+          git config user.name "github-actions[bot]"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add models/
+          git add results/
+          git add data/
+
+          git diff --cached --quiet || \
+            git commit -m "Daily model update and AQI prediction"
+
+          git push
