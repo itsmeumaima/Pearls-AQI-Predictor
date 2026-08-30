@@ -23,10 +23,6 @@ from xgboost import XGBRegressor
 warnings.filterwarnings("ignore")
 
 
-# ============================================================
-# CONFIGURATION
-# ============================================================
-
 DATA_PATH = "data/processed/karachi_aqi_features.csv"
 
 MODEL_DIR = "models"
@@ -46,11 +42,6 @@ TARGETS = [
     "AQI_t+2",
     "AQI_t+3"
 ]
-
-
-# ============================================================
-# 1. LOAD DATA
-# ============================================================
 
 print("\n" + "=" * 60)
 print("LOADING PROCESSED DATA")
@@ -73,11 +64,6 @@ print(
     f"{df['date'].max().date()}"
 )
 
-
-# ============================================================
-# 2. CHECK TARGETS
-# ============================================================
-
 print("\nChecking target columns...")
 
 for target in TARGETS:
@@ -90,10 +76,6 @@ for target in TARGETS:
 print("All target columns found.")
 
 
-# ============================================================
-# 3. CLEAN DATA
-# ============================================================
-
 df = df.replace(
     [np.inf, -np.inf],
     np.nan
@@ -103,21 +85,6 @@ df = df.dropna().reset_index(drop=True)
 
 print(f"Clean dataset shape: {df.shape}")
 
-
-# ============================================================
-# 4. CREATE X AND y
-# ============================================================
-
-# Date is not directly given to the model.
-#
-# Time information is already represented by:
-#
-# month
-# day
-# day_of_week
-# day_of_year
-# sin/cos features
-# etc.
 
 DROP_COLUMNS = [
     "date",
@@ -147,11 +114,6 @@ print(X.columns.tolist())
 print("\nTargets:")
 print(TARGETS)
 
-
-# ============================================================
-# 5. REMOVE NON-NUMERIC FEATURES
-# ============================================================
-
 non_numeric = X.select_dtypes(
     exclude=[np.number]
 ).columns.tolist()
@@ -166,12 +128,6 @@ if non_numeric:
     X = X.drop(
         columns=non_numeric
     )
-
-
-# ============================================================
-# 6. TIME-BASED TRAIN / TEST SPLIT
-# ============================================================
-
 print("\n" + "=" * 60)
 print("TIME-BASED TRAIN / TEST SPLIT")
 print("=" * 60)
@@ -221,11 +177,6 @@ print(
     f"{df.iloc[split_index:]['date'].max().date()}"
 )
 
-
-# ============================================================
-# 7. EVALUATION FUNCTION
-# ============================================================
-
 results = []
 
 horizon_results = []
@@ -272,9 +223,6 @@ def evaluate_model(
     print(f"RMSE:  {rmse:.4f}")
     print(f"R²  :  {r2:.4f}")
 
-    # --------------------------------------------------------
-    # Individual horizon metrics
-    # --------------------------------------------------------
 
     for i, target in enumerate(TARGETS):
 
@@ -313,15 +261,10 @@ def evaluate_model(
     return mae, rmse, r2
 
 
-# ============================================================
-# 8. BASELINE
-# ============================================================
-
 print("\n" + "=" * 60)
 print("MODEL 1 — BASELINE")
 print("=" * 60)
 
-# Predict every future day using today's AQI.
 
 baseline_pred = np.column_stack([
     X_test["AQI"].values,
@@ -336,18 +279,12 @@ evaluate_model(
 )
 
 
-# ============================================================
-# 9. STANDARDIZATION FOR RIDGE
-# ============================================================
-
 print("\n" + "=" * 60)
 print("FEATURE SCALING")
 print("=" * 60)
 
 scaler = StandardScaler()
 
-# IMPORTANT:
-# Fit ONLY on training data.
 
 X_train_scaled = scaler.fit_transform(
     X_train
@@ -369,11 +306,6 @@ print(
     "Scaler saved to "
     "models/feature_scaler.pkl"
 )
-
-
-# ============================================================
-# 10. RIDGE REGRESSION
-# ============================================================
 
 print("\n" + "=" * 60)
 print("MODEL 2 — RIDGE REGRESSION")
@@ -406,10 +338,6 @@ joblib.dump(
     )
 )
 
-
-# ============================================================
-# 11. RANDOM FOREST
-# ============================================================
 
 print("\n" + "=" * 60)
 print("MODEL 3 — RANDOM FOREST")
@@ -460,11 +388,6 @@ print(
     "\nRandom Forest saved."
 )
 
-
-# ============================================================
-# 12. RANDOM FOREST FEATURE IMPORTANCE
-# ============================================================
-
 print("\n" + "=" * 60)
 print("RANDOM FOREST FEATURE IMPORTANCE")
 print("=" * 60)
@@ -496,11 +419,6 @@ feature_importance.to_csv(
     ),
     index=False
 )
-
-
-# ============================================================
-# 13. XGBOOST
-# ============================================================
 
 print("\n" + "=" * 60)
 print("MODEL 4 — XGBOOST")
@@ -558,11 +476,6 @@ joblib.dump(
     )
 )
 
-
-# ============================================================
-# 14. CREATE RESULTS DATAFRAME
-# ============================================================
-
 results_df = pd.DataFrame(
     results
 )
@@ -572,10 +485,6 @@ horizon_df = pd.DataFrame(
 )
 
 
-# ============================================================
-# 15. SORT MODELS
-# ============================================================
-
 results_df = (
     results_df
     .sort_values(
@@ -584,11 +493,6 @@ results_df = (
     )
     .reset_index(drop=True)
 )
-
-
-# ============================================================
-# 16. PRINT FINAL COMPARISON
-# ============================================================
 
 print("\n" + "=" * 70)
 print("FINAL MODEL COMPARISON")
@@ -613,11 +517,6 @@ print(
     )
 )
 
-
-# ============================================================
-# 17. SAVE RESULTS
-# ============================================================
-
 results_df.to_csv(
     os.path.join(
         RESULT_DIR,
@@ -633,11 +532,6 @@ horizon_df.to_csv(
     ),
     index=False
 )
-
-
-# ============================================================
-# 18. SELECT BEST MODEL
-# ============================================================
 
 best_model = results_df.iloc[0]
 
@@ -663,11 +557,6 @@ print(
     f"R²    : {best_model['R2']:.4f}"
 )
 
-
-# ============================================================
-# 19. SAVE BEST MODEL INFORMATION
-# ============================================================
-
 best_model_info = {
     "model": best_model_name,
     "MAE": float(best_model["MAE"]),
@@ -689,10 +578,6 @@ with open(
         indent=4
     )
 
-
-# ============================================================
-# 20. ACTUAL VS PREDICTED PLOTS
-# ============================================================
 
 print("\nCreating prediction plots...")
 
@@ -768,11 +653,6 @@ for model_name, predictions in plot_predictions.items():
 
         plt.close()
 
-
-# ============================================================
-# 21. FEATURE IMPORTANCE PLOT
-# ============================================================
-
 top_features = (
     feature_importance
     .head(20)
@@ -814,11 +694,6 @@ plt.savefig(
 
 plt.close()
 
-
-# ============================================================
-# 22. SAVE TEST PREDICTIONS
-# ============================================================
-
 prediction_df = pd.DataFrame({
     "date": test_dates,
 
@@ -848,11 +723,6 @@ prediction_df.to_csv(
     ),
     index=False
 )
-
-
-# ============================================================
-# 23. FINAL SUMMARY
-# ============================================================
 
 print("\n" + "=" * 70)
 print("MODEL TRAINING COMPLETE")

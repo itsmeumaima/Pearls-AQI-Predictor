@@ -5,11 +5,6 @@ import time
 from datetime import date, timedelta
 from tqdm import tqdm
 
-
-# ============================================================
-# CONFIGURATION
-# ============================================================
-
 LAT = 24.8607
 LON = 67.0011
 TIMEZONE = "Asia/Karachi"
@@ -19,17 +14,10 @@ RAW_PATH = "data/raw/karachi_daily_aqi_weather.csv"
 REQUEST_DELAY = 0.2
 
 
-# ============================================================
-# FETCH ONE DAY OF DATA
-# ============================================================
-
 def fetch_day_data(day):
 
     try:
 
-        # ----------------------------------------------------
-        # 1. AIR QUALITY DATA
-        # ----------------------------------------------------
 
         air_url = (
             "https://air-quality-api.open-meteo.com/v1/air-quality"
@@ -72,10 +60,6 @@ def fetch_day_data(day):
         )
 
 
-        # ----------------------------------------------------
-        # 2. WEATHER DATA
-        # ----------------------------------------------------
-
         weather_url = (
             "https://archive-api.open-meteo.com/v1/archive"
             f"?latitude={LAT}"
@@ -114,11 +98,6 @@ def fetch_day_data(day):
         df_weather = pd.DataFrame(
             weather_json["hourly"]
         )
-
-
-        # ----------------------------------------------------
-        # 3. MERGE AIR + WEATHER
-        # ----------------------------------------------------
 
         df = pd.merge(
             df_air,
@@ -160,10 +139,6 @@ def fetch_day_data(day):
         return None
 
 
-# ============================================================
-# CONVERT HOURLY DATA TO DAILY DATA
-# ============================================================
-
 def process_daily(day, df):
 
     try:
@@ -177,9 +152,6 @@ def process_daily(day, df):
 
         daily["date"] = pd.to_datetime(day)
 
-        # ----------------------------------------------------
-        # RENAME COLUMNS
-        # ----------------------------------------------------
 
         daily = daily.rename(
             columns={
@@ -232,11 +204,6 @@ def process_daily(day, df):
 
         return None
 
-
-# ============================================================
-# LOAD EXISTING DATA
-# ============================================================
-
 def load_existing_data():
 
     if not os.path.exists(RAW_PATH):
@@ -282,9 +249,6 @@ def load_existing_data():
     return df
 
 
-# ============================================================
-# UPDATE DATASET
-# ============================================================
 
 def update_dataset():
 
@@ -293,20 +257,12 @@ def update_dataset():
     print("========================================")
 
 
-    # --------------------------------------------------------
-    # LOAD EXISTING DATA
-    # --------------------------------------------------------
-
     df_existing = load_existing_data()
 
     if df_existing is None:
 
         return
 
-
-    # --------------------------------------------------------
-    # FIND LATEST DATE
-    # --------------------------------------------------------
 
     latest_date = (
         df_existing["date"]
@@ -325,9 +281,6 @@ def update_dataset():
     )
 
 
-    # --------------------------------------------------------
-    # CHECK IF UPDATE IS REQUIRED
-    # --------------------------------------------------------
 
     if latest_date >= today:
 
@@ -341,10 +294,6 @@ def update_dataset():
 
         return
 
-
-    # --------------------------------------------------------
-    # CREATE MISSING DATE RANGE
-    # --------------------------------------------------------
 
     start_date = latest_date + timedelta(
         days=1
@@ -367,10 +316,6 @@ def update_dataset():
         f"{start_date} → {end_date}"
     )
 
-
-    # --------------------------------------------------------
-    # DOWNLOAD NEW DATA
-    # --------------------------------------------------------
 
     new_days = []
 
@@ -412,11 +357,6 @@ def update_dataset():
             REQUEST_DELAY
         )
 
-
-    # --------------------------------------------------------
-    # NO NEW DATA
-    # --------------------------------------------------------
-
     if not new_days:
 
         print(
@@ -426,9 +366,6 @@ def update_dataset():
         return
 
 
-    # --------------------------------------------------------
-    # COMBINE NEW DATA
-    # --------------------------------------------------------
 
     df_new = pd.concat(
         new_days,
@@ -440,9 +377,6 @@ def update_dataset():
     )
 
 
-    # --------------------------------------------------------
-    # APPEND OLD + NEW
-    # --------------------------------------------------------
 
     df_updated = pd.concat(
         [
@@ -452,10 +386,6 @@ def update_dataset():
         ignore_index=True
     )
 
-
-    # --------------------------------------------------------
-    # REMOVE DUPLICATES
-    # --------------------------------------------------------
 
     df_updated = (
         df_updated
@@ -467,19 +397,9 @@ def update_dataset():
         .reset_index(drop=True)
     )
 
-
-    # --------------------------------------------------------
-    # CREATE NEXT DAY AQI
-    # --------------------------------------------------------
-
     df_updated["Next_Day_AQI"] = (
         df_updated["AQI"].shift(-1)
     )
-
-
-    # --------------------------------------------------------
-    # SAVE UPDATED DATA
-    # --------------------------------------------------------
 
     os.makedirs(
         os.path.dirname(RAW_PATH),
@@ -490,11 +410,6 @@ def update_dataset():
         RAW_PATH,
         index=False
     )
-
-
-    # --------------------------------------------------------
-    # SUMMARY
-    # --------------------------------------------------------
 
     print(
         "\n========================================"
@@ -538,11 +453,6 @@ def update_dataset():
             index=False
         )
     )
-
-
-# ============================================================
-# MAIN
-# ============================================================
 
 if __name__ == "__main__":
 

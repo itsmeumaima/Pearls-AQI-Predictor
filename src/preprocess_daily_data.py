@@ -3,18 +3,11 @@ import numpy as np
 import pandas as pd
 
 
-# ============================================================
-# CONFIGURATION
-# ============================================================
-
 INPUT_PATH = "data/raw/karachi_daily_aqi_weather.csv"
 
 OUTPUT_PATH = "data/processed/karachi_aqi_features.csv"
 
 
-# ============================================================
-# LOAD DATA
-# ============================================================
 
 print("\nLoading raw data...")
 
@@ -32,11 +25,6 @@ print(
     f"{df['date'].max().date()}"
 )
 
-
-# ============================================================
-# 1. TIME FEATURES
-# ============================================================
-
 print("\nCreating time features...")
 
 df["day"] = df["date"].dt.day
@@ -51,10 +39,6 @@ df["is_weekend"] = (
     df["day_of_week"] >= 5
 ).astype(int)
 
-
-# ============================================================
-# 2. CYCLICAL TIME FEATURES
-# ============================================================
 
 df["month_sin"] = np.sin(
     2 * np.pi * df["month"] / 12
@@ -79,11 +63,6 @@ df["day_of_year_sin"] = np.sin(
 df["day_of_year_cos"] = np.cos(
     2 * np.pi * df["day_of_year"] / 365
 )
-
-
-# ============================================================
-# 3. LAG FEATURES
-# ============================================================
 
 print("Creating lag features...")
 
@@ -118,9 +97,6 @@ for column in lag_columns:
         )
 
 
-# ============================================================
-# 4. ROLLING FEATURES
-# ============================================================
 
 print("Creating rolling features...")
 
@@ -174,9 +150,6 @@ for column in rolling_columns:
         )
 
 
-# ============================================================
-# 5. CHANGE / TREND FEATURES
-# ============================================================
 
 print("Creating change features...")
 
@@ -212,11 +185,6 @@ for column in pollutants:
         df[column].pct_change(7) * 100
     )
 
-
-# ============================================================
-# 6. AQI MOMENTUM
-# ============================================================
-
 df["AQI_momentum_3"] = (
     df["AQI"] -
     df["AQI"].shift(3)
@@ -231,11 +199,6 @@ df["AQI_momentum_14"] = (
     df["AQI"] -
     df["AQI"].shift(14)
 )
-
-
-# ============================================================
-# 7. POLLUTANT RATIOS
-# ============================================================
 
 df["PM25_PM10_ratio"] = (
     df["PM2.5"] /
@@ -253,10 +216,6 @@ df["CO_NO2_ratio"] = (
 )
 
 
-# ============================================================
-# 8. WEATHER INTERACTION FEATURES
-# ============================================================
-
 df["Temp_Humidity_interaction"] = (
     df["Temperature"] *
     df["Humidity"]
@@ -273,9 +232,6 @@ df["PM10_Humidity_interaction"] = (
 )
 
 
-# ============================================================
-# 9. 3-DAY FORECAST TARGETS
-# ============================================================
 
 print("Creating 3-day forecast targets...")
 
@@ -292,9 +248,6 @@ df["AQI_t+3"] = (
 )
 
 
-# ============================================================
-# 10. REMOVE OLD TARGET
-# ============================================================
 
 if "Next_Day_AQI" in df.columns:
 
@@ -303,9 +256,6 @@ if "Next_Day_AQI" in df.columns:
     )
 
 
-# ============================================================
-# 11. HANDLE INF VALUES
-# ============================================================
 
 print("Cleaning infinite values...")
 
@@ -313,24 +263,6 @@ df = df.replace(
     [np.inf, -np.inf],
     np.nan
 )
-
-
-# ============================================================
-# 12. REMOVE ONLY ROWS WITH MISSING INPUT FEATURES
-# ============================================================
-#
-# IMPORTANT:
-#
-# We DO NOT use:
-#
-#     df.dropna()
-#
-# because that would remove the latest 3 days due to
-# missing future targets.
-#
-# We only remove rows where INPUT FEATURES are unavailable.
-#
-# ============================================================
 
 feature_columns = [
     column
@@ -356,11 +288,6 @@ print(
     f"because of missing input features."
 )
 
-
-# ============================================================
-# 13. SAVE PROCESSED DATA
-# ============================================================
-
 os.makedirs(
     "data/processed",
     exist_ok=True
@@ -372,9 +299,6 @@ df.to_csv(
 )
 
 
-# ============================================================
-# SUMMARY
-# ============================================================
 
 print("\n========================================")
 print("FEATURE ENGINEERING COMPLETE")
@@ -403,9 +327,6 @@ print(
 )
 
 
-# ============================================================
-# LATEST DATA CHECK
-# ============================================================
 
 print("\n========================================")
 print("LATEST DATA CHECK")
