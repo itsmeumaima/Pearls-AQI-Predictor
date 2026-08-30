@@ -3,6 +3,8 @@
 An end-to-end **Air Quality Index (AQI) forecasting system for Karachi** that predicts AQI for the next 3 days using automated data collection, feature engineering, **Hopsworks Feature Store**, XGBoost, GitHub Actions, and a Streamlit dashboard.
 
 ---
+Project Link: https://pearls-aqi-predictor1.streamlit.app/
+
 
 ## Project Overview
 
