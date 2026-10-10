@@ -1,4 +1,4 @@
 forecast_date,horizon,predicted_AQI,category
-2026-10-10,AQI_t+1,80.28,Moderate
-2026-10-11,AQI_t+2,84.58,Moderate
-2026-10-12,AQI_t+3,91.2,Moderate
+2026-10-11,AQI_t+1,76.8,Moderate
+2026-10-12,AQI_t+2,82.8,Moderate
+2026-10-13,AQI_t+3,86.1,Moderate
