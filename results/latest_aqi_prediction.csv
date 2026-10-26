@@ -1,4 +1,4 @@
 forecast_date,horizon,predicted_AQI,category
-2026-10-26,AQI_t+1,111.12,Unhealthy for Sensitive Groups
-2026-10-27,AQI_t+2,93.22,Moderate
-2026-10-28,AQI_t+3,95.19,Moderate
+2026-10-27,AQI_t+1,102.19,Unhealthy for Sensitive Groups
+2026-10-28,AQI_t+2,93.72,Moderate
+2026-10-29,AQI_t+3,96.65,Moderate
